@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+venv_tf/
+.venv/
+
+# macOS cruft
+.DS_Store
+
+# TensorFlow logs / checkpoints
+logs/
+checkpoints/
+saved_models/
+
+# VS Code
+.vscode/
