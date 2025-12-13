@@ -1,0 +1,431 @@
+\documentclass[amssymb,twocolumn,aps,floatfix]{revtex4-2}
+
+
+
+
+% allows special characters (including æøå)
+\usepackage[utf8]{inputenc}
+%\usepackage [norsk]{babel} %if you write norwegian
+\usepackage[english]{babel}  %if you write english
+
+\usepackage{physics,amssymb}  % mathematical symbols (physics imports amsmath)
+\usepackage{graphicx}         % include graphics such as plots
+\usepackage[table]{xcolor}
+\usepackage{xcolor}           % set colors
+\usepackage{hyperref}         % automagic cross-referencing 
+\usepackage{natbib}
+\usepackage{float}  
+\usepackage{xcolor}       % enables colors
+\usepackage{listings}     % code listings
+
+% Define colors
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% Set style
+\lstdefinestyle{mypython}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    numbers=left,
+    numbersep=8pt,
+    showstringspaces=false
+}
+
+% Apply this style to all listings
+\lstset{style=mypython}
+
+
+\usepackage{booktabs}
+\usepackage{siunitx}
+\sisetup{
+  table-number-alignment = center,
+  table-figures-integer = 1,
+  table-figures-decimal = 6,
+  table-figures-exponent = 1,
+  detect-weight = true,
+  detect-inline-weight = math,
+}
+
+
+\begin{document}
+
+\title{Project 3\\ sjhagdjhas
+    \normalsize FYS-STK4155}
+\date{\today}               
+\author{Selma Beate Øvland}
+\affiliation{University of Oslo}
+
+\newpage
+	
+\begin{abstract}
+
+We investigate the application of deep neural networks on differential equations. Differential equations (DE) problems have a significant scientific interest spanning from fluid mechanics to quantum systems. We compare the performance of a neural network-based solution with that of the established explicit forward Euler finite difference scheme and the analytical solution. 
+The neural network approach uses a Physics-informed Neural Network (PINN) architecture, which uses a trial solution designed to satisfy the problem's initial and boundary conditions. The networks parameters are optimized by minimizing a cost function defined by the mean squared error (MSE) of the PDE residual, using Tensorflow/Keras.  We analyze the comparative accuracy, efficiency, and stability of the neural network results, with a particular focus on the impact of hidden layer architecture and activation functions on the final solution quality. 
+\end{abstract}
+
+\maketitle
+
+\section{Introduction}
+
+Neural networks (NNs) are sophisticated computational systems with a demonstrated ability to learn complex tasks. The Universal Approximation Theorem \cite{hjorthjensen_week41_misc} \cite{cybenko1989approximation} confirms that feed-forward neural networks (FFNNs) can approximate any continuous function to arbitrary accuracy, provided the network has sufficient complexity. This versatility has given NNs a popularity across different natural sciences, including solving fluid dynamics problems and studying quantum systems \cite{hjorthjensen_week41_misc}. 
+
+This project focuses on solving differential equations using machine learning methods. The diffusion equation is a standard partial differential equation (PDE) used to model the gradual spread of heat, particles, or chemicals through a material. In this project, we consider the one-dimensional diffusion equation
+
+\begin{equation}
+\frac{\partial^2 u(x,t)}{\partial x^2}
+=
+\frac{\partial u(x,t)}{\partial t}
+\label{eq:diff}
+\end{equation}
+
+We approach this problem in two stages:
+
+\begin{enumerate}
+    \item Standard Numerical Approach - The solution provided by the explicit forward Euler finite difference scheme, a conventional numerical technique for PDEs, requiring discretization of time and space. 
+    \item Deep learning Approach (PINN) - The solution derived from a neural network explicitly trained to satisfy the PDE, using methods such as automatic differentiation. 
+\end{enumerate}
+
+We define a trial solution, $g_{t}(x, t, P)$, which satisfies the initial and boundary conditions of the diffusion equation. This trial function incorporates the output of the deep neural network $N(x,t,P)$, whose weights and biases (P) are iteratively optimized. The optimization procedure involves defining a cost function $C(P)$ based on the PDE residual obtained when the trial solution is substituted back into the PDE itself, often corresponding to the MSE of this residual. The network then minimizes $C(P)$ using gradient descent and automatic differentiation through Keras \cite{hjorthjensen_week43_misc}. 
+
+The objective of this project is to implement both conventional and deep learning solutions and provide a critical assessment comparing their results, numerical stability, and computational requirements, particularly regarding the impact of varying network complexity (e.g., number of hidden layers, nodes, and activation functions) on the solutions' accuracy. 
+
+\section{Theory and Methods}
+
+\subsection{Problem definition and Analytical Solution}
+
+The core problem involves solving the one-dimensional diffusion equation on a rod of length L = 1. This equation models quantities such as temperature or concentration as a function of space (x) and time (t). 
+
+\subsubsection{Governing Partial Differential Equation (PDE)}
+
+The PDE states that the second spatial derivative of $u(x,t)$ equals its first time derivative: 
+
+\begin{equation}
+\frac{\partial^2 u(x,t)}{\partial x^2}
+=
+\frac{\partial u(x,t)}{\partial t},
+\qquad t > 0,\; x \in [0,L]
+\end{equation}
+
+\subsubsection{Initial and Boundary Conditions}
+
+The solution must satisfy: 
+
+\begin{itemize}
+    \item Initial Condition (IC) (at t = 0):
+    \begin{equation}
+        u(x,0) = \sin(\pi x), \quad 0 < x < 1
+    \end{equation}
+    \item Boundary Conditions (BCs) (at x = 0 and x = 1): The temperature (or concentration) at the ends of the rod is fixed at zero: 
+    \begin{equation}
+u(0,t) = 0,\qquad u(1,t) = 0,\qquad t \ge 0
+\end{equation}
+
+\end{itemize}
+
+\subsubsection{Analytical solution}
+
+For this specific set of initial and boundary conditions, the exact solution is a single decaying Fourier mode: 
+
+\begin{equation}
+u(x,t) = e^{-\pi^{2} t}\,\sin(\pi x)
+\end{equation}
+
+The analytical solution is crucial for validating the accuracy of the numerical and neural network methods. 
+
+\subsection{The Explicit Forward Euler Scheme}
+
+The numerical solution of the PDE uses the explicit forward Euler algorithm. This is done by converting the continuous PDE into a discrete difference equation using spatial and temporal grids.
+
+\subsubsection{Discretization}
+
+To obtain a numerical solution, we discretize the PDE. We define a uniform grid for space and time: 
+
+\begin{itemize}
+    \item \textbf{Space grid:} \( x_i = i\,\Delta x \), where \( i = 0,1,\ldots, N_x \) and \( \Delta x = \frac{1}{N_x} \).
+    
+    \item \textbf{Time grid:} \( t_n = n\,\Delta t \), where \( n = 0,1,\ldots, N_t \).
+    
+    \item The numerical solution at a grid point is denoted  
+    \( u_i^n \approx u(x_i, t_n) \).
+\end{itemize}
+
+\subsubsection{Finite Difference Approximations}
+
+The derivatives in the PDE is replaced by finite difference approximations: 
+
+\begin{itemize}
+
+    \item \textbf{Time derivative} \(u_t\) (forward difference):  
+    This uses the values at times \(t_n\) and \(t_{n+1}\):
+    \[
+        u_t(x_i, t_n) \approx \frac{u_i^{\,n+1} - u_i^{\,n}}{\Delta t}.
+    \]
+
+    \item \textbf{Spatial second derivative} \(u_{xx}\) (centered difference):  
+    This uses the values at \(x_{i-1}, x_i, x_{i+1}\) at time \(t_n\):
+    \[
+        u_{xx}(x_i, t_n) \approx 
+        \frac{u_{i+1}^{\,n} - 2u_i^{\,n} + u_{i-1}^{\,n}}{\Delta x^{2}}.
+    \]
+
+\end{itemize}
+
+\subsubsection{Explicit Update Formula}
+
+Substituting these approximations into the PDE $u_t = u_{xx}
+$ and solving for $u_i^{\,n+1}$ gives the update equation: 
+
+\begin{equation}
+u_i^{\,n+1}
+=
+u_i^{\,n}
++
+\frac{\Delta t}{\Delta x^{2}}
+\left( 
+    u_{i+1}^{\,n}
+    - 2u_i^{\,n}
+    + u_{i-1}^{\,n}
+\right).
+\end{equation}
+
+Defining the diffusion number $\alpha = \frac{\Delta t}{\Delta x^{2}}$, the formula simplifies to: 
+
+\begin{equation}
+u_i^{\,n+1}
+=
+u_i^{\,n}
++
+\alpha \left(
+    u_{i+1}^{\,n}
+    - 2u_i^{\,n}
+    + u_{i-1}^{\,n}
+\right),
+\qquad
+i = 1, \ldots, N_x - 1 .
+\end{equation}
+
+\subsubsection{Stability Condition}
+
+For the explicit forward Euler method to be numerically stable, the diffusion number $\alpha$ must satisfy the condition: 
+
+\begin{equation}
+\alpha \le \frac{1}{2}
+\end{equation}
+
+\subsection{Neural Network Method}
+
+The solution using neural networks relies on a method known as Physics-informed Neural Networks (PINNs), which doesn't directly output the solution. Instead, PINN learns a function $u(x,t)$ by minimizing the residual error of the PDE, not by discrete approximations. We use TensorFlow to compute derivatives automatically.
+
+\subsubsection{The trial solution}
+
+The solution $u(x,t)$ is approximated by a trial solution $g_{t}(x, t, P)$ designed to satisfy the initial and boundary conditions. The trial solution structure involves the output of a deep neural network $N(x, t, P)$, parameterized by weights and biases P \cite{hjorthjensen_week43_misc}: 
+
+\begin{equation}
+g_t(x,t)
+=
+h_1(x,t)
++
+h_2(x,t, N(x,t,P))
+\end{equation}
+
+For the diffusion equation with the given conditions $u(x,0) = \sin(\pi x)$ and $u(0,t) = u(1,t) = 0$, the appropriate trial solution is \cite{hjorthjensen_week43_misc}: 
+
+\begin{equation}
+g_t(x,t)
+=
+(1 - t)\,u(x)
++
+x(1 - x)\, t\, N(x,t,P) \\
+\label{eq:trial}
+\end{equation}
+
+\begin{itemize}
+    \item The term $x(1-t)u(x)$ ensures the initial condition $u(x,0) = sin(\pi x)$ is met. 
+    \item The term $x(1-x)tN(x,t,P)$ ensures the overall solution satisfies the boundary conditions at $x = 0, x=1$ (because of to the $x(1-x)$ factor). The initial condition at $t = 0$ ensures that the neural network contribution is zero under the specified conditions. 
+\end{itemize}
+
+This is implemented in our code \textbf{PINN.py} in the function \textbf{g\_trial\_tf}: 
+
+\begin{lstlisting}[language=Python]
+h1 = (1.0 - t) * u(x)
+h2 = x*(1-x)*t*N_val
+g = h1 + h2
+\end{lstlisting}
+
+\subsubsection{Cost Function}
+
+The goal is to adjust the network parameters P such that the trial solution $g_t$ satisfies the differential equation \ref{eq:diff}. The residual error $f$ of the PDE is defined as: 
+
+\begin{equation}
+f(x,t,g_t,g_t',\ldots)
+=
+\frac{\partial g_t}{\partial t}
+-
+\frac{\partial^{2} g_t}{\partial x^{2}}
+\approx 0
+\end{equation}
+
+\subsection{Neural Network Architecture using Keras}
+
+The neural network is created using Keras, for a simplified process. It provides the \textbf{Sequential} model class, which allows layers to be easily appended to build standard feed-forward networks. It also includes the \textbf{Dense} layer class for defining fully connected layers, which is useful in our user case, as we need to map input coordinates x and t to an output N. This is implemented in the \textbf{create\_network\_model} function: 
+
+\begin{lstlisting}[language=Python]
+model = Sequential()
+model.add(tf.keras.Input(shape=(input_dim,)))
+model.add(Dense(layers, activation=activation))
+model.add(Dense(output_dim, activation='linear'))
+\end{lstlisting}
+
+Keras/TensorFlow also allows us to easily specify activations for layers, and offers support for various components needed for complex training like optimizers and regularizers.
+
+\subsection{Handling Complex Differentiation}
+
+The key advantage using TensorFlow is automatic differentiation. TensorFlow also provides much better execution time than a custom NN code, since our search space, defined by the network's hyperparameters and weights, can be massive, leading to long runtimes. In this case, we minimize the cost function based on the residual of the PDE, by calculating high-order derivatives of the trial solution \ref{eq:trial}. TensorFlow provides efficient mechanisms for automatic differentiation (using \textbf{tf.GradientTape}) necessary for computing these complex high-order derivatives during the backpropagation and optimization stages \cite{hjorthjensen_week42_misc} \cite{hjorthjensen_week43_misc}. \textbf{tf.GradientTape} is implemented in our code: 
+
+\begin{lstlisting}[language=Python]
+#Second derivatives w.r.t.x
+with tf.GradientTape(persistent=True) as tape2:
+    ....
+    #Inner tape to compute first derivatives 
+    with tf.GradientTape(persistent=True) as tape1:
+    .....
+#Second order derivatives, requires the derivatives of the inner tape
+d2_g_t_d2x = tape2.gradient(d_g_t_dx, x)
+\end{lstlisting}
+
+As we require second derivatives, we need to use one tape to compute the first derivative, then another tape to take the derivative of that first derivative. In this codeblock we compute the partial derivative ($u_t$ and $u_{xx}$) required for the PDE residual: 
+
+\begin{lstlisting}[language=Python]
+residual = d_g_t_dt - d2_g_t_d2x
+loss = tf.reduce_mean(tf.square(residual))
+\end{lstlisting}
+
+The cost function is the MSE of the residual at radomly sampled collocation points; the difference between the time derivative and the second spatial derivative of the trial solution. 
+
+\subsection{Custom Training Loop}
+
+Because we have a PINN model, we can't use \textbf{model.compile} or \textbf{model.fit}, since we don't have target values for training. We need to implement a custom training loop: 
+
+\begin{lstlisting}[language=Python]
+@tf.function #converts the function into a fast, optimized TensorFlow graph
+def train_step(X_points):
+    with tf.GradientTape() as tape:
+    """ 1. Builds the trial solution g_t
+        2. Computes g_t
+        3. Computes first derivatives
+        4. Computes second derivatives
+        5. forms the PDE residual
+        6. Returns the MSE
+        """
+        loss = compute_loss(model, X_points)
+    grads = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(grads, model.trainable_variables))
+    return loss
+
+loss = train_step(X_train)
+\end{lstlisting}
+
+This code block performs one training iteration of our PINN model. It computes the loss, the gradients with respect to all network parameters and applies an optimizer. This replaces the more standard \textbf{mode.fit()} more commonly used in classification or regression problems. Adapted to our PDE problem, the function:
+
+\begin{enumerate}
+    \item Evaluates how well the neural network satisfies the PDE at given points. 
+    \item Calculates how changing each weight affects the PDE residual. 
+    \item Adjusts the weights to reduce the residual.
+\end{enumerate}
+
+\subsection{Comparison with Analytical Solution}
+
+To evaluate the trained network, we compute: 
+
+\begin{equation}
+\mathrm{MSE} = \frac{1}{N_x N_t} \sum \left( g_t(x, t) - u(x, t) \right)^2
+\end{equation}
+
+This is implemented in our \textbf{compute\_MSE()} function. This separates \textbf{Residual Loss} (how well the PDE is satisfied) and \textbf{Solution MSE} (how well the PINN matches the analytical solution). 
+
+\subsection{Complexity Study}
+
+When using PINNs, the network architecture and other hyperparameters affect the accuracy, stability and convergence of the PDE solution. PINNs performance depends heavily on the model design. Therefore, we test over several hyperparameters to find a configuration that is both accurate and robust. We evaluate using loss and MSE scores, in addition to testing over several seeds to assess variance, stability and general performance. 
+
+\subsubsection{Width test}
+
+The width controls the capacity of the neural network. Too few nodes can result in underfitting, and too many nodes can result in instability and a harder to train model as parameters grow rapidly \cite{hjorthjensen_week42_misc}. The largest width is not necessarily the best one as PINN loss landscapes can become stiff with increased width, as in the topography can be both steep and flat and an appropriate step size can be hard to find. 
+Networks of the form: 
+
+\[
+[20],\,[50],\,[100],\,[150],\,[200],\,[250]
+\]
+
+\subsubsection{Depth test}
+
+As stated before, the Universal Approximation Theorem says that a network just needs a single hidden layer to approximate any continuous function, increasing depth offers practical advantages. Together with width, depth determine the network's topology and complexity. For very complex problems, increasing the number of layers allows the network to learn abstract features, but this can require a huge amount of training data. For many problems, starting with one or two hidden layers is sufficient \cite{compfys_ch14}. \\
+
+For deeper architectures, the challenge is often the unstable gradient problem, like vanishing gradients and exploding gradients. When training deep networks, the error signal becomes too small as it is passed backward through many layers, so the early layers barely gets updated, causing learning to slow down or stop entirely. Exploding gradients is the oposite problem; the error signal becomes too large as it moves backward, leading to huge weight updates that make training unstable and cause divergence. Different layers can also learn at different speeds, resulting in uneven learning \cite{compfys_ch14} \cite{hjorthjensen_week42_misc}. Choosing the optimal depth is crucial. 
+Architectures of the form: 
+
+\[
+[150],\,[150, 150],\,[150, 150, 150],\,[150, 150, 150, 150]
+\]
+
+\subsubsection{Activation test}
+
+Activation functions affect the smoothness of the solution, the stability of the gradient backpropagation, and the shape of the function space the network can represent. With the activation function, we can introduce nonlinearity into the network, which is essential when we deal with solutions derived from differential equations \cite{compfys_ch13}. \\ 
+
+Activation functions tested: 
+
+\[
+tanh, Sigmoid, ReLU, swish
+\]
+
+Each configuration is used using the same training loop, and both residual loss and solution MSE are recorded. 
+
+\subsubsection{Learning rate test}
+
+The learning rate determines the size of each optimization step. PINNs are sensitive to this parameter, because their loss function combines PDE residuals, boundary conditions and higher-order derivatives. A learning rate that is too high leads to unstable or diverging training, while a too low value can lead to slow convergence. 
+
+\[
+[0.0001, 0.001, 0.01, 0.1, 1.0]
+\]
+
+\subsubsection{Optimizer test}
+
+PINN optimization can be challenging due to stiff gradient landscapes and high-order derivatives computed via automatic differentiation. ADAM is fast, but can be unstable for large models, while RMSProp can sometimes be more stable. These are the two optimizers we test. Optimizer choice can drastically change convergence behavior, and we examine which one best handles PDE loss and minimizes the residual reliably. 
+
+\subsubsection{Testing across multiple seeds}
+
+Training PINNs involve randomness in: 
+
+\begin{itemize}
+    \item Weight initialization
+    \item Sampling of collocation points
+    \item Stochasticity of optimizers like ADAM
+\end{itemize}
+
+So a single run is not representative of true model performance. Different seeds can produce: 
+
+\begin{itemize}
+    \item Different convergence speed
+    \item Different final MSE score
+    \item Occasional training failures
+\end{itemize}
+
+We repeat each hyperparameter configuration across different seeds and compute mean performance (accuracy) and standard deviation (stability and robustness). This way we select model configurations that perform consistently. 
+
+\subsection{Use of AI}
+
+I have a folder in GitHub with my ChatGPT prompts. In addition to this I have a Grammarly business account through my work that I use for language correction (grammar, spelling, fixing sentences, punctuation, suggesting alternative words, etc). 
+
+\section{Results}
+
+
+
+\bibliographystyle{apsrev4-2}
+\bibliography{biblio}
+\end{document}
