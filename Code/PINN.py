@@ -34,7 +34,7 @@ def g_trial_tf(X, model, N_output):
     N_val = model(X)
 
     # h1 = initial shape (satisfies IC and BC)
-    h1 = (1.0 - t) * u(x)  # u(x) is your initial condition function
+    h1 = (1.0 - t) * u(x)  # u(x) is initial condition function
 
     # h2 = correction term using NN
     h2 = x * (1.0 - x) * t * N_val
@@ -50,13 +50,13 @@ def compute_loss(model, X_points):
     # We need to watch variables x and t to compute second derivatives w.r.t x
     # and first derivatives w.r.t t.
     with tf.GradientTape(persistent=True) as tape2:
-        tape2.watch(x)
-        tape2.watch(t)
+        tape2.watch(x) # Watch x for second derivatives
+        tape2.watch(t) # Watch t for first derivatives
         
         # Inner tape to compute first derivatives
         with tf.GradientTape(persistent=True) as tape1:
-            tape1.watch(x)
-            tape1.watch(t)
+            tape1.watch(x) # Watch x for first derivatives
+            tape1.watch(t) # Watch t for first derivatives
             
             # Combine inputs for the NN
             inputs = tf.stack([x[:,0], t[:,0]], axis=1) # Shape (N_samples, 2)
@@ -72,7 +72,7 @@ def compute_loss(model, X_points):
         d_g_t_dx = tape1.gradient(g_t, x)
     
     # Calculate second order derivatives (d^2(g_t) / dx^2)
-    # Note: Requires derivative of the output of the inner tape (d_g_t_dx) w.r.t x
+    # Requires derivative of the output of the inner tape (d_g_t_dx) w.r.t x
     d2_g_t_d2x = tape2.gradient(d_g_t_dx, x)
     
     # PDE Residual: R = d(g_t)/dt - d^2(g_t)/dx^2 
