@@ -1,0 +1,6 @@
+pip install tensorflow-macos==2.16.1
+pip install tensorflow-metal==1.1.0
+pip install scipy
+pip install pandas
+pip install matplotlib
+pip install numpy

@@ -8,6 +8,69 @@ from tensorflow.keras.layers import Dense
 
 from Code.functions import analytical_u
 
+import tensorflow as tf
+
+from scipy.optimize import minimize
+
+
+class TF_LBFGS:
+    def __init__(self, model, loss_fn):
+        self.model = model
+        self.loss_fn = loss_fn
+        # Store shapes AND dtypes of all trainable variables
+        self.shapes = [v.shape for v in model.trainable_variables]
+        self.dtypes = [v.dtype for v in model.trainable_variables]
+
+    def pack_weights(self):
+        # Flatten all weights into a single 1D tensor
+        flat_vars = [tf.reshape(v, [-1]) for v in self.model.trainable_variables]
+        return tf.concat(flat_vars, axis=0)
+
+    def unpack_weights(self, flat):
+        # flat is a 1D numpy array from SciPy (float64)
+        idx = 0
+        new_vars = []
+        for shape, dtype in zip(self.shapes, self.dtypes):
+            size = int(np.prod(shape))
+            slice_np = flat[idx:idx + size]              # numpy slice, float64
+            slice_tf = tf.reshape(slice_np, shape)       # tf.Tensor, float64
+            slice_tf = tf.cast(slice_tf, dtype=dtype)    # cast to original dtype
+            new_vars.append(slice_tf)
+            idx += size
+
+        # Assign back to the model
+        for var, new in zip(self.model.trainable_variables, new_vars):
+            var.assign(new)
+
+    def loss_and_grad(self, flat_params, X):
+        # Update model weights from flattened vector
+        self.unpack_weights(flat_params)
+
+        with tf.GradientTape() as tape:
+            loss = self.loss_fn(self.model, X)
+
+        grads = tape.gradient(loss, self.model.trainable_variables)
+        # Flatten gradients to 1D numpy array (float64)
+        grads_flat = tf.concat([tf.reshape(g, [-1]) for g in grads], axis=0)
+
+        return loss.numpy().astype(np.float64), grads_flat.numpy().astype(np.float64)
+
+    def minimize(self, X):
+        X = tf.convert_to_tensor(X, dtype=tf.float32)
+        x0 = self.pack_weights().numpy()  # initial flat weights (float32 -> numpy)
+
+        result = minimize(
+            fun=lambda w: self.loss_and_grad(w, X)[0],
+            x0=x0,
+            jac=lambda w: self.loss_and_grad(w, X)[1],
+            method="L-BFGS-B",
+            options={"maxiter": 500, "maxcor": 50}
+        )
+
+        # Final weights
+        self.unpack_weights(result.x)
+        print("L-BFGS done. Success:", result.success, "| Final loss:", result.fun)
+
 
 def create_network_model(input_dim=2, output_dim=1, layers=[6], activation='tanh'):
     model = Sequential()
@@ -26,63 +89,43 @@ def create_network_model(input_dim=2, output_dim=1, layers=[6], activation='tanh
 def u(x):
     return tf.sin(np.pi * x)
 
-def g_trial_tf(X, model, N_output):
+def u(x):
+    return tf.sin(np.pi * x)
+
+def g_trial_tf(X, N_val):
     x = X[:, 0:1]
     t = X[:, 1:2]
 
-    # NN output
-    N_val = model(X)
-
-    # h1 = initial shape (satisfies IC and BC)
-    h1 = (1.0 - t) * u(x)  # u(x) is initial condition function
-
-    # h2 = correction term using NN
+    h1 = (1.0 - t) * u(x)
     h2 = x * (1.0 - x) * t * N_val
-
     return h1 + h2
 
 
-def compute_loss(model, X_points):
-    # X_points shape (N_samples, 2): column 0 is x, column 1 is t
-    x = X_points[:, 0:1] # x coordinates
-    t = X_points[:, 1:2] # t coordinates
-    
-    # We need to watch variables x and t to compute second derivatives w.r.t x
-    # and first derivatives w.r.t t.
-    with tf.GradientTape(persistent=True) as tape2:
-        tape2.watch(x) # Watch x for second derivatives
-        tape2.watch(t) # Watch t for first derivatives
-        
-        # Inner tape to compute first derivatives
-        with tf.GradientTape(persistent=True) as tape1:
-            tape1.watch(x) # Watch x for first derivatives
-            tape1.watch(t) # Watch t for first derivatives
-            
-            # Combine inputs for the NN
-            inputs = tf.stack([x[:,0], t[:,0]], axis=1) # Shape (N_samples, 2)
-            N_output = model(inputs)              # Output of the network
-            
-            # Trial solution g_t
-            X = tf.stack([x[:, 0], t[:, 0]], axis=1)
-            g_t = g_trial_tf(X, model, N_output)
 
+def compute_loss(model, X):
+    x = X[:, 0:1]
+    t = X[:, 1:2]
+
+    # First tape computes g, g_t, g_x
+    with tf.GradientTape(persistent=True) as tape:
+        tape.watch([x, t])
+
+        inputs = tf.concat([x, t], axis=1)
+        N_output = model(inputs)
+        g = g_trial_tf(inputs, N_output)
         
-        # Calculate first order derivatives
-        d_g_t_dt = tape1.gradient(g_t, t)
-        d_g_t_dx = tape1.gradient(g_t, x)
-    
-    # Calculate second order derivatives (d^2(g_t) / dx^2)
-    # Requires derivative of the output of the inner tape (d_g_t_dx) w.r.t x
-    d2_g_t_d2x = tape2.gradient(d_g_t_dx, x)
-    
-    # PDE Residual: R = d(g_t)/dt - d^2(g_t)/dx^2 
-    # The PDE is (d/dt)u = (d^2/dx^2)u, so we want R = ut - uxx = 0
-    residual = d_g_t_dt - d2_g_t_d2x
-    
-    # Cost function (MSE of the residual)
-    loss = tf.reduce_mean(tf.square(residual))
-    
-    return loss
+        g_t = tape.gradient(g, t)
+        g_x = tape.gradient(g, x)
+
+    # Second derivative
+    g_xx = tape.gradient(g_x, x)
+
+    del tape  # free memory
+
+    residual = g_t - g_xx
+    return tf.reduce_mean(tf.square(residual))
+
+
 
 
 def make_train_step(model, optimizer, compute_loss):
@@ -110,11 +153,12 @@ def compute_MSE(model, nx=50, nt=50, T_final=0.5):
 
     X_tf = tf.convert_to_tensor(X_input, dtype=tf.float32)
     N_out = model(X_tf)
-    u_pred = g_trial_tf(X_tf, model, N_out).numpy().reshape(nt, nx)
+    u_pred = g_trial_tf(X_tf, N_out).numpy().reshape(nt, nx)
 
     u_true = analytical_u(X, T)
     mse = np.mean((u_pred - u_true)**2)
     return mse
+
 
 def compute_solution_grid(model, nx=50, nt=50, T_final=0.5):
     """
@@ -139,7 +183,8 @@ def compute_solution_grid(model, nx=50, nt=50, T_final=0.5):
 
     # Network output and final trial solution
     N_out = model(X_tf)
-    u_pred_flat = g_trial_tf(X_tf, model, N_out).numpy()
+    u_pred_flat = g_trial_tf(X_tf, N_out).numpy()
+
 
     # Reshape back to 2D grid (nt × nx)
     u_pred = u_pred_flat.reshape(nt, nx)
