@@ -135,6 +135,7 @@ For this specific set of initial and boundary conditions, the exact solution is 
 
 \begin{equation}
 u(x,t) = e^{-\pi^{2} t}\,\sin(\pi x)
+\label{eq:analytical}
 \end{equation}
 
 The analytical solution is crucial for validating the accuracy of the numerical and neural network methods. 
@@ -216,7 +217,8 @@ i = 1, \ldots, N_x - 1 .
 For the explicit forward Euler method to be numerically stable, the diffusion number $\alpha$ must satisfy the condition: 
 
 \begin{equation}
-\alpha \le \frac{1}{2}
+\alpha \le \frac{1}{2},\, \,  \frac{\Delta t}{(\Delta x)^2} \le 0.5
+\label{eq:stability}
 \end{equation}
 
 \subsection{Neural Network Method}
@@ -388,7 +390,7 @@ Each configuration is used using the same training loop, and both residual loss 
 
 \subsubsection{Learning rate test}
 
-The learning rate determines the size of each optimization step. PINNs are sensitive to this parameter, because their loss function combines PDE residuals, boundary conditions and higher-order derivatives. A learning rate that is too high leads to unstable or diverging training, while a too low value can lead to slow convergence. 
+The learning rate determines the size of each optimization step. PINNs are sensitive to this parameter, because their loss function combines PDE residuals, boundary conditions, and higher-order derivatives. A learning rate that is too high leads to unstable or diverging training, while a too low value can lead to slow convergence. 
 
 \[
 [0.0001, 0.001, 0.01, 0.1, 1.0]
@@ -400,7 +402,7 @@ PINN optimization can be challenging due to stiff gradient landscapes and high-o
 
 \subsubsection{Testing across multiple seeds}
 
-Training PINNs involve randomness in: 
+Training PINNs involves randomness in: 
 
 \begin{itemize}
     \item Weight initialization
@@ -416,15 +418,47 @@ So a single run is not representative of true model performance. Different seeds
     \item Occasional training failures
 \end{itemize}
 
-We repeat each hyperparameter configuration across different seeds and compute mean performance (accuracy) and standard deviation (stability and robustness). This way we select model configurations that perform consistently. 
+We repeat each hyperparameter configuration across different seeds and compute mean performance (accuracy) and standard deviation (stability and robustness). This way, we select model configurations that perform consistently. 
 
 \subsection{Use of AI}
 
-I have a folder in GitHub with my ChatGPT prompts. In addition to this I have a Grammarly business account through my work that I use for language correction (grammar, spelling, fixing sentences, punctuation, suggesting alternative words, etc). 
+I have a folder in GitHub with my ChatGPT prompts. In addition to this, I have a Grammarly business account through my work that I use for language correction (grammar, spelling, fixing sentences, punctuation, suggesting alternative words, etc). 
 
 \section{Results}
 
+\subsection{Initial tests}
 
+Our PINN model for these initial tests has two hidden layers with 6 and 7 nodes, and uses Sigmoid activation layer. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{Figures/Initial tests/analytical_heatmap.png}
+    \caption{The figure shows how the analytical solution decays exponentially over the domain x [0,1] and t [0,0.2].}
+    \label{fig:analytical}
+\end{figure}
+
+Figure \ref{fig:analytical} shows the behaviour of the analytical solution in the chosen time domain and over the whole spatial domain. The maximum value occurs at x = 0.5 at t = 0. The solution is symmetric around the midpoint, with a sinusoidal shape while flattening over time. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{Figures/Initial tests/euler_vs_analytical_vs_PINN.png}
+    \caption{The analytical solution, our Euler scheme, and PINN model tested at two different time points, t1 and t2.}
+    \label{fig:initial_test}
+\end{figure}
+
+In Figure \ref{fig:initial_test}, we present the initial tests of the Euler scheme and PINN model at two time points, t = 0.01 and t = 0.10, plotted against the corresponding analytical solutions at these time points. We have not yet optimized the PINN model and have chosen some arbitrary values. We see that Euler FD lies almost on top of the analytical solution, the same with our PINN model. At t=0.10, a slightly more diffused profile is visible, consistent with the analytical behaviour we showed in Figure \ref{fig:analytical}. From this plot alone we can see no visible discrepancy. 
+
+\subsubsection{Euler vs PINN analysis}
+
+\section{Discussion}
+
+The initial result comparing the analytical solution, Euler, and PINN demonstrates that both the Euler scheme and PINN model are capable of reproducing the analytical solution with high accuracy for short times and coarse spatial resolution. The explicit Euler scheme performs well because the spatial step size and time step satisfy the stability condition in equation \ref{eq:stability}. Our relatively small and simple PINN model achieves comparable accuracy to the Euler scheme, and although it doesn't show a clear advantage, it also doesn't fall behind. The PINN model matches the analytical curves at two different times, which suggests it has learned both the temporal and spatial structures of the solution. 
+
+Because the diffusion equation is linear and well-behaved, both approaches perform seemingly equally well under these conditions. Any differences are too small to be visible in Figure \ref{fig:initial_test}. This motivated the need for additional tests to see where the Euler method might begin to degrade and if the PINN model maintains stability or accuracy in these regimes. 
+
+\section{Conclusion}
+
+The initial tests confirm that both PINN and Euler reproduce the analytical solution of the diffusion equation with great accuracy for short times. 
 
 \bibliographystyle{apsrev4-2}
 \bibliography{biblio}
