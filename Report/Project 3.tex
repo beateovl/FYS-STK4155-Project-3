@@ -402,6 +402,8 @@ The learning rate determines the size of each optimization step. PINNs are sensi
 
 PINN optimization can be challenging due to stiff gradient landscapes and high-order derivatives computed via automatic differentiation. ADAM is fast, but can be unstable for large models, while RMSProp can sometimes be more stable. These are the two optimizers we test. Optimizer choice can drastically change convergence behavior, and we examine which one best handles PDE loss and minimizes the residual reliably. 
 
+To improve convergence, we use a first-order optimization (either Adam or RMSProp, depending on tests) with a second-order quasi-Newton method (L-BFGS). 832498173498327489237492
+
 \subsubsection{Testing across multiple seeds}
 
 Training PINNs involves randomness in: 
@@ -457,10 +459,10 @@ In Figure \ref{fig:initial_test}, we present the initial tests of the Euler sche
     \centering
     \includegraphics[width=0.9\linewidth]{Figures/Initial tests/error_euler_vs_PINN.png}
     \caption{Error (\mathbf{u - u\_{analytical}}) for the Euler scheme and PINN method at time = 0.1. The Euler method exhibits larger error throughout the domain, reaching over 0.006, while the PINN method maintains consistently lower error, peaking just above 0.}
-    \label{fig:initial_test}
+    \label{fig:error_comp}
 \end{figure}
 
-Figure \ref{fig:initial_test} shows the error at each computed point for t=0.10. The PINN has much lower maximum error and smoother spatial accuracy compared to Euler, demonstrating that PINN provides a more accurate approximation at this time point. This is consistent with PINN minimizing the residual of the PDE globally \cite{hj_week40}, while Euler accumulates truncation error. In Figure \ref{fig:heatmap_comparison}, the error maps show how accuracy evolves over both space and time. The Euler method shows increasing error for larger t, especially around the center x. The PINN maintains low error at small times, but develops a localized band of errors for intermediate t. Overall, PINN maintains a lower maximum error. 
+Figure \ref{fig:error_comp} shows the error at each computed point for t=0.10. The PINN has much lower maximum error and smoother spatial accuracy compared to Euler, demonstrating that PINN provides a more accurate approximation at this time point. This is consistent with PINN minimizing the residual of the PDE globally \cite{hj_week40}, while Euler accumulates truncation error. In Figure \ref{fig:heatmap_comparison}, the error maps show how accuracy evolves over both space and time. The Euler method shows increasing error for larger t, especially around the center x. The PINN maintains low error at small times, but develops a localized band of errors for intermediate t. Overall, PINN maintains a lower maximum error. 
 Figure \ref{fig:long_time_comparison} examines the long-time behaviour. At t = 0.2, both numerical methods accurately track the analytical curve. At t = 0.5, Euler begins to underpredict the amplitude while PINN slightly overestimates it, but both still capture the parabolic shape and remain close to the analytical solution. 
 
 \begin{figure}[H]
@@ -555,12 +557,39 @@ Figure \ref{fig:long_time_comparison} examines the long-time behaviour. At t = 0
         \caption{MSE vs learning rate. Extremely small or extremely large learning rates degrade performance. Optimal accuracy is achieved around $10^{-2}$ to $10^{-3}$}. 
         \label{fig:eta}
     \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.7\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/Hyperparameter tests/activation.png}
+        \caption{MSE vs activation function. }. 
+        \label{fig:eta}
+    \end{subfigure}
     \caption{Optimizer tests.}
     \label{fig:optimizer}
 \end{figure}
 
-The hyperparameter studies show several clear patterns. In Figure \ref{fig:optimizer}, Adam significantly outperforms RMSProp in final MSE, and learning rate tests confirm that optimal training occurs at $10^{-2}$ to $10^{-3}$, where smaller and larger learning rates reduce accuracy. For the optimizers, the figure shows that tanh, sigmoid and swish all achieved comparable MSE values, with swish and tanh as the most consistent ones. ReLU performed extremely poorly, with significant errors. 
+
+The hyperparameter studies show several clear patterns. In Figure \ref{fig:optimizer}, Adam significantly outperforms RMSProp in final MSE, and learning rate tests confirm that optimal training occurs at $10^{-2}$ to $10^{-3}$, where smaller and larger learning rates reduce accuracy. For the optimizers, the figure shows that tanh, sigmoid, and swish all achieved comparable MSE values, with swish and tanh as the most consistent ones. ReLU performed extremely poorly, with significant errors. 
 In figure \ref{fig:architecture}, we see that increasing the number of collocation points improves accuracy up to 10,000 samples. Moderate network depth (1-2) layers and width (100-200 nodes) produce the lowest errors, while deeper or excessively wide networks become unstable.
+
+\subsubsection{Final model after hyperparameter testing}
+
+The PINN was finally trained with an architecture of [200, 200] layers and nodes, using tanh activation, Adam optimizer, early stopping for epochs, and T\_final = 0.5 (which, as shown in Figure \ref{fig:analytical}, corresponds to the point where diffusion stops). With this setup, we achieved an improvement in MSE from a magnitude of $10^{-8}$ to $10^{-9}$. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\linewidth]{Figures/Initial tests/error_euler_vs_PINN.png}
+    \caption{PINN error heatmap - final model. The error is dominated in x=0.5, t=0, consistent with where the analytical solution has its largest amplitude.}
+    \label{fig:final_error}
+\end{figure}
+
+In 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\linewidth]{Figures/Initial tests/error_euler_vs_PINN.png}
+    \caption{PINN error heatmap - final model. The error is dominated in x=0.5, t=0, consistent with where the analytical solution has its largest amplitude.}
+\end{figure}
 
 \section{Discussion}
 
@@ -575,6 +604,7 @@ The hyperparameter results guide how to improve our model. Increasing the colloc
 \section{Conclusion}
 
 The initial tests confirm that both PINN and Euler reproduce the analytical solution of the diffusion equation with great accuracy for short times. PINN achieved significantly lower error than the Euler scheme. Error heatmaps show that Euler accumulates error over time, while PINN maintains a uniformly low error across the domain. Further studies over longer times revealed that both methods stay close to the analytical solution, but Euler slightly underestimates, and PINN slightly overestimates without the correct training. 
+Hyperparameter testing shows that PINN accuracy is highly sensitive to architectural choices and optimizer settings. Optimal performance is achieved using ADAM optimizer, a moderate learning rate ($10^{-2}$ to $10^{-3}$), and a network of moderate width and depth. A too-deep network, too many modes, or too many collocation points can cause degraded training stability. For the activation function, we chose safety with tanh; however, both sigmoid and swish achieved a lower MSE value and could be used. 
 
 \bibliographystyle{apsrev4-2}
 \bibliography{biblio}
