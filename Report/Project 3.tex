@@ -435,11 +435,11 @@ Our PINN model for these initial tests has two hidden layers with 6 and 7 nodes,
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{Figures/Initial tests/analytical_heatmap.png}
-    \caption{The figure shows how the analytical solution decays exponentially over the domain x [0,1] and t [0,0.2]. There is an initial peaked temperature profile that gradually smooths and decreases in amplitude over time due to diffusion. }
+    \caption{The figure shows how the analytical solution decays exponentially over the domain x [0,1] and t [0,0.4]. There is an initial peaked temperature profile that gradually smooths and decreases in amplitude over time due to diffusion. }
     \label{fig:analytical}
 \end{figure}
 
-Figure \ref{fig:analytical} shows the behaviour of the analytical solution in the chosen time domain and over the whole spatial domain. The maximum value occurs at x = 0.5 at t = 0. The solution is symmetric around the midpoint, with a sinusoidal shape while flattening over time. 
+Figure \ref{fig:analytical} shows the behaviour of the analytical solution in the chosen time domain and over the whole spatial domain. The maximum value occurs at x = 0.5 at t = 0. The solution is symmetric around the midpoint, with a sinusoidal shape while flattening over time. This plot serves as the reference solution to evaluate both the Euler and PINN method; in addition to that, it gives us our reference temporal domain (reference value for \textbf{T\_final}). 
 
 \begin{figure}[H]
     \centering
@@ -475,6 +475,7 @@ In Figure \ref{fig:initial_test}, we present the initial tests of the Euler sche
         \caption{PINN error heatmap}
         \label{fig:pinn_heatmap}
     \end{subfigure}
+    
     \caption{Comparison of Euler and PINN error heatmaps. Euler's error grows with time and remains largest in the spatial center. The PINN shows low error at small t, but error grows near t $\approx$ 0.03-0.05 before decaying again.}
     \label{fig:heatmap_comparison}
 \end{figure}
@@ -487,6 +488,13 @@ In Figure \ref{fig:initial_test}, we present the initial tests of the Euler sche
         \includegraphics[width=\linewidth]{Figures/Initial tests/long_time_0.2.png}
         \caption{Long time comparison of Euler, PINN and the analytical solution at t=0.2.}
         \label{fig:init_0.2}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.7\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/Initial tests/long_time_0.5.png}
+        \caption{Long time comparison of Euler, PINN and the analytical solution at t=0.4.}
+        \label{fig:init_0.5}
     \end{subfigure}
     \hfill
     \begin{subfigure}{0.7\linewidth}
