@@ -475,7 +475,7 @@ In Figure \ref{fig:initial_test}, we present the initial tests of the Euler sche
         \caption{PINN error heatmap}
         \label{fig:pinn_heatmap}
     \end{subfigure}
-    \caption{Comparison of Euler and PINN error heatmaps}
+    \caption{Comparison of Euler and PINN error heatmaps. Euler's error grows with time and remains largest in the spatial center. The PINN shows low error at small t, but error grows near t $\approx$ 0.03-0.05 before decaying again.}
     \label{fig:heatmap_comparison}
 \end{figure}
 
@@ -484,20 +484,32 @@ In Figure \ref{fig:initial_test}, we present the initial tests of the Euler sche
     \centering
     \begin{subfigure}{0.7\linewidth}
         \centering
-        \includegraphics[width=\linewidth]{Figures/Initial tests/.png}
-        \caption{Euler error heatmap}
-        \label{fig:euler_heatmap}
+        \includegraphics[width=\linewidth]{Figures/Initial tests/long_time_0.2.png}
+        \caption{Long time comparison of Euler, PINN and the analytical solution at t=0.2.}
+        \label{fig:init_0.2}
     \end{subfigure}
     \hfill
     \begin{subfigure}{0.7\linewidth}
         \centering
-        \includegraphics[width=\linewidth]{Figures/Initial tests/error_PINN_heatmap.png}
-        \caption{PINN error heatmap}
-        \label{fig:pinn_heatmap}
+        \includegraphics[width=\linewidth]{Figures/Initial tests/long_time_0.5.png}
+        \caption{Long time comparison of Euler, PINN and the analytical solution at t=0.5.}
+        \label{fig:init_0.5}
     \end{subfigure}
-    \caption{Comparison of Euler and PINN error heatmaps}
-    \label{fig:heatmap_comparison}
+    \hfill
+    \begin{subfigure}{0.7\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/Initial tests/long_time_0.8.png}
+        \caption{Long time comparison of Euler, PINN and the analytical solution at t=0.8.}
+        \label{fig:init_0.8}
+    \end{subfigure}
+    \caption{Long-time behaviour of Euler, PINN and the analytical solution. }
+    \label{fig:long_time_comparison}
+    
 \end{figure}
+
+Figure \ref{fig:initial_test} shows the error at each computed point for t=0.10 .The PINN has lower maximum error, and smoother spatial accuracy compared to Euler. This is consistent with PINN minimizing the residual of the PDE globally \cite{hj_week40}, while Euler accumulates truncation error. 
+In Figure \ref{fig:heatmap_comparison} the error maps show how accuracy evolves over both space and time. The Euler method shows increasing error for larger t, especially around the center x. The PINN maintains low error at small times, but develops a localized band of errors for intermediate t. Overall, PINN maintains lower maximum error. 
+Figure \ref{fig:long_time_comparison} examines the long-time behaviour. At t= 0.2, both numerical methods track the analytical curve well. At t=0.5, Euler slightly underestimates while PINN slightly overestimates the amplitude. At t=0.8, Euler correctly approaches zero, but the PINN fails to capture the long-time decay and produces an incorrectly negative curved profile.
 
 \section{Discussion}
 
@@ -505,9 +517,11 @@ The initial result comparing the analytical solution, Euler, and PINN demonstrat
 
 Because the diffusion equation is linear and well-behaved, both approaches perform seemingly equally well under these conditions. Any differences are too small to be visible in Figure \ref{fig:initial_test}. This motivated the need for additional tests to see where the Euler method might begin to degrade and if the PINN model maintains stability or accuracy in these regimes. 
 
+From our error analysis, the results highlight a difference between traditional numerical schemes like Euler and our PINN model in solving time-dependent PDEs. They both perform well over short times, but their behaviour diverges as time increases. The Euler method displays numerical error growth that increases with time, especially for a coarse spatial step size. However, Euler seems to capture the long-time decay of the diffusion process accurately. In contrast, PINN achieves high short-time accuracy and lower error than Euler for early times. However, the PINN struggles when tested over a longer period. The solution at t = 0.8 becomes non-physical, indicating that the network has not properly learned the decay behavior required. Overall, the comparisons suggest that Euler is more robust for longer times, while PINN offers superior accuracy within a limited temporal window. As this was just an initial test to observe the behavior, we recognize that we need to refine our PINN model and identify the optimal architectures and hyperparameters. 
+
 \section{Conclusion}
 
-The initial tests confirm that both PINN and Euler reproduce the analytical solution of the diffusion equation with great accuracy for short times. 
+The initial tests confirm that both PINN and Euler reproduce the analytical solution of the diffusion equation with great accuracy for short times. Further studies over longer times revealed a significant difference: Euler converged correctly toward the steady-state zero solution, whereas PINN failed to generalize and completely broke down at long times. PINNs are powerful, but sensitive to the training domain, and although they yield better results early on, they do not guarantee long-term stability. 
 
 \bibliographystyle{apsrev4-2}
 \bibliography{biblio}
