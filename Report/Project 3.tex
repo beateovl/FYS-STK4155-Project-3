@@ -513,8 +513,54 @@ Figure \ref{fig:long_time_comparison} examines the long-time behaviour. At t = 0
 
 \subsubsection{Hyperparameter testing}
 
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.7\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/Hyperparameter tests/width.png}
+        \caption{Effect of layer width (nodes per layer). Best performance occurs at a width of 100-200 nodes, while overly wide networks displayed variance and instability.}
+        \label{fig:width}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.7\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/Hyperparameter tests/depth.png}
+        \caption{Networks of varying depth. Very deep architectures show poor performance, while moderate depths achieve the lowest error. Note that the best result could be either one or two hidden layers, as the two-layer model had a much better loss value (not shown) while the one-layer model had a better MSE value. }
+        \label{fig:depth}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.7\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/Hyperparameter tests/collpoints.png}
+        \caption{Number of collocation points. Using the best results from the former tests, we observe that performance improves as the number of collocation points increases up to 10,000; beyond that, we encounter mild instability.}
+        \label{fig:coll_points}
+    \end{subfigure}
+    \caption{Architecture tests. }
+    \label{fig:architecture}
+    
+\end{figure}
 
- 
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.7\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/Hyperparameter tests/optimizer.png}
+        \caption{Final MSE for ADAM and RMSProp. Adam achieves substantially lower error, indicating better suitability for our PINN model. }
+        \label{fig:opt}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.7\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{Figures/Hyperparameter tests/eta.png}
+        \caption{MSE vs learning rate. Extremely small or extremely large learning rates degrade performance. Optimal accuracy is achieved around $10^{-2}$ to $10^{-3}$}. 
+        \label{fig:eta}
+    \end{subfigure}
+    \caption{Optimizer tests.}
+    \label{fig:optimizer}
+\end{figure}
+
+The hyperparameter studies show several clear patterns. In Figure \ref{fig:optimizer}, Adam significantly outperforms RMSProp in final MSE, and learning rate tests confirm that optimal training occurs at $10^{-2}$ to $10^{-3}$, where smaller and larger learning rates reduce accuracy. For the optimizers, the figure shows that tanh, sigmoid and swish all achieved comparable MSE values, with swish and tanh as the most consistent ones. ReLU performed extremely poorly, with significant errors. 
+In figure \ref{fig:architecture}, we see that increasing the number of collocation points improves accuracy up to 10,000 samples. Moderate network depth (1-2) layers and width (100-200 nodes) produce the lowest errors, while deeper or excessively wide networks become unstable.
 
 \section{Discussion}
 
@@ -523,6 +569,8 @@ The initial result comparing the analytical solution, Euler, and PINN demonstrat
 Because the diffusion equation is linear and well-behaved, both approaches perform seemingly equally well under these conditions. Any differences are too small to be visible in Figure \ref{fig:initial_test}. This motivated the need for additional tests to see where the Euler method might begin to degrade and if the PINN model maintains stability or accuracy in these regimes. 
 
 From our error analysis, the results highlight a difference between traditional numerical schemes, such as the Euler method, and our PINN model in solving time-dependent PDEs. They both perform well over short times, but their behaviour diverges as time increases. The Euler method underestimated the amplitude of the solution over a longer time, due to its tendency to smooth the solution more than the true PDE does and because of growing error bands, as we could see in the heatmap in Figure \ref{fig:euler_heatmap}. The PINN method demonstrated high accuracy over the time interval for which it was trained on. The error comparison in Figure \ref{fig:initial_test} shows that the network approximates the solution with an error much smaller than Euler, and without the same kind of numerical diffusion. At t = 0.5, it slightly overestimates the peak compared to the analytical solution. This suggests the network has learned the overall shape well, but the long-time behaviour is still sensitive to training choices (which we didn't pay much attention to in these first tests). As this was just an initial test to observe the behavior, we recognize that we need to refine our PINN model and identify the optimal architectures and hyperparameters. 
+
+The hyperparameter results guide how to improve our model. Increasing the collocation points improves the model only up to a point, beyond which optimization becomes harder and variance increases. Similarly, depth and width must be chosen wisely; networks that are too wide or too deep do not improve performance, but rather degrade it. The learning rate tests confirm the expected behavior of Adam, that a moderate learning rate yields good convergence, but more extreme values lead to instability. A surprising result was that the Sigmoid activation function gave quite good results, but it is known to suffer from vanishing gradients in deeper networks, so we did not choose it for our model. Swish also achieved good MSE values, but as tanh achieved comparable results to both swish and sigmoid, we decided to use that. It is a widely used and well-understood function in PINNs, achieving very small errors, only slightly above those of swish and sigmoid. 
 
 \section{Conclusion}
 
