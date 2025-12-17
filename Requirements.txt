@@ -1,6 +1,5 @@
-pip install tensorflow-macos==2.16.1
-pip install tensorflow-metal==1.1.0
-pip install scipy
-pip install pandas
-pip install matplotlib
-pip install numpy
+matplotlib==3.10.8
+numpy==2.3.5
+pandas==2.3.3
+seaborn==0.13.2
+tensorflow==2.16.1
