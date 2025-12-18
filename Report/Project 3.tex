@@ -58,7 +58,7 @@
 
 \begin{document}
 
-\title{Project 3\\ sjhagdjhas
+\title{Numerical and Machine Learning Approaches to Solving the One-Dimensional Diffusion Equation\\ 
     \normalsize FYS-STK4155}
 \date{\today}               
 \author{Selma Beate Øvland}
@@ -68,15 +68,14 @@
 	
 \begin{abstract}
 
-We investigate the application of deep neural networks on differential equations. Differential equations (DE) problems have a significant scientific interest spanning from fluid mechanics to quantum systems. We compare the performance of a neural network-based solution with that of the established explicit forward Euler finite difference scheme and the analytical solution. 
-The neural network approach uses a Physics-informed Neural Network (PINN) architecture, which uses a trial solution designed to satisfy the problem's initial and boundary conditions. The networks parameters are optimized by minimizing a cost function defined by the mean squared error (MSE) of the PDE residual, using Tensorflow/Keras.  We analyze the comparative accuracy, efficiency, and stability of the neural network results, with a particular focus on the impact of hidden layer architecture and activation functions on the final solution quality. 
+We investigate the application of deep neural networks for solving differential equations, with a focus on the one-dimensional diffusion equation. Differential equations (DE) problems have significant scientific interest, spanning from fluid mechanics to quantum systems, and are traditionally solved using numerical discretization methods. We compare the performance of a Physics-informed Neural Network (PINN) solution with that of the established explicit forward Euler finite difference scheme and the analytical solution. We evaluate and compare the accuracy, stability, and computational behavior of the PINN and Euler methods. Our results show that PINNs can achieve high accuracy and low error compared to the explicit Euler scheme, but at the cost of increased computational complexity and sensitivity to hyperparameter selection. The study highlights both the potential and the limitations of PINNs as a tool for solving PDEs. The results indicate that PINNs are better for problems where traditional grid-based methods become impractical, rather than for simple low-dimensional PDEs. 
 \end{abstract}
 
 \maketitle
 
 \section{Introduction}
 
-Neural networks (NNs) are sophisticated computational systems with a demonstrated ability to learn complex tasks. The Universal Approximation Theorem \cite{hjorthjensen_week41_misc} \cite{cybenko1989approximation} confirms that feed-forward neural networks (FFNNs) can approximate any continuous function to arbitrary accuracy, provided the network has sufficient complexity. This versatility has given NNs a popularity across different natural sciences, including solving fluid dynamics problems and studying quantum systems \cite{hjorthjensen_week41_misc}. 
+Neural networks (NNs) are sophisticated computational systems that have demonstrated the ability to learn complex tasks. The Universal Approximation Theorem \cite{hjorthjensen_week41_misc} \cite{cybenko1989approximation} confirms that feed-forward neural networks (FFNNs) can approximate any continuous function to arbitrary accuracy, provided the network has sufficient complexity. This versatility has given NNs popularity across different natural sciences, including the solution of fluid dynamics problems and the study of quantum systems \cite{hjorthjensen_week41_misc}. 
 
 This project focuses on solving differential equations using machine learning methods. The diffusion equation is a standard partial differential equation (PDE) used to model the gradual spread of heat, particles, or chemicals through a material. In this project, we consider the one-dimensional diffusion equation
 
@@ -94,9 +93,11 @@ We approach this problem in two stages:
     \item Deep learning Approach (PINN) - The solution derived from a neural network explicitly trained to satisfy the PDE, using methods such as automatic differentiation. 
 \end{enumerate}
 
-We define a trial solution, $g_{t}(x, t, P)$, which satisfies the initial and boundary conditions of the diffusion equation. This trial function incorporates the output of the deep neural network $N(x,t,P)$, whose weights and biases (P) are iteratively optimized. The optimization procedure involves defining a cost function $C(P)$ based on the PDE residual obtained when the trial solution is substituted back into the PDE itself, often corresponding to the MSE of this residual. The network then minimizes $C(P)$ using gradient descent and automatic differentiation through Keras \cite{hjorthjensen_week43_misc}. 
+Traditional numerical solvers, such as finite difference methods, rely on explicit discretization of space and time into a grid, which introduces some limitations. For the method to be stable, the relationship between spatial and temporal step size needs to be respected through what is known as Courant-Friedrichs-Lewy (CFL) condition, shown in equation \ref{eq:stability}. To avoid instability and divergence, these relationships must be respected, which requires taking small time steps, a computationally expensive approach. The methods are also susceptible to truncation errors, because the derivatives are approximated using finite differences and are not exact. Reducing either the spatial or temporal time step reduces this error, but the runtime greatly increases. If we were to evaluate a PDE at a higher dimension than 1D, the grid size could be huge, which significantly affects computational cost and memory usage.  
 
-The objective of this project is to implement both conventional and deep learning solutions and provide a critical assessment comparing their results, numerical stability, and computational requirements, particularly regarding the impact of varying network complexity (e.g., number of hidden layers, nodes, and activation functions) on the solutions' accuracy. 
+Physics-informed Neural Networks (PINNs) offer an alternative method where the solution is represented as a continuous function approximation. Instead of computing u(x,t) at fixed points, the network learns a function defined everywhere in the domain. As classical solvers can suffer from an exploding grid at higher dimensions, PINNs do not require structured spatial grid, but instead evaluate the PDE residual at randomly sampled collocation points. These methods are suitable for high-dimensional PDEs, irregular geometries, or problems where grid generation is difficult. But they also have some challenges. PINN performance is sensitive to architecture choices, can suffer from exploding or vanishing gradients, and convergence can be very slow. We define a trial solution, $g_{t}(x, t, P)$, which satisfies the initial and boundary conditions of the diffusion equation. This trial function incorporates the output of the deep neural network $N(x,t,P)$, whose weights and biases (P) are iteratively optimized. The optimization procedure involves defining a cost function $C(P)$ based on the PDE residual obtained when the trial solution is substituted back into the PDE itself, often corresponding to the MSE of this residual. The network then minimizes $C(P)$ using gradient descent and automatic differentiation through Keras \cite{hjorthjensen_week43_misc} \cite{compfys_ch14}. 
+
+Both classical numerical solvers, such as the Euler scheme, and PINNs have their advantages depending on the situation. In this project, we aim to explore when PINNs provide better performance than the classical Euler scheme, or when the PINN fails. The objective of this project is to implement both conventional and deep learning solutions and provide a critical assessment comparing their results, numerical stability, and computational requirements, particularly regarding the impact of varying network complexity (e.g., number of hidden layers, nodes, and activation functions) on the solutions' accuracy. 
 
 \section{Theory and Methods}
 
@@ -223,9 +224,11 @@ For the explicit forward Euler method to be numerically stable, the diffusion nu
 \label{eq:stability}
 \end{equation}
 
+Even when this stability condition is satisfied, every forward Euler step introduces error from the derivative approximation. Because Euler is a first-order accurate method in time, the errors grow with each iteration, never cancel out, and scale linearly in time. The longer we simulate, the more the error accumulates. Euler also tends to smooth the solution over time, which can make the peak of the solution appear lower than it should be, make the solution decay faster than the analytical solution, or reduce curvature. This is known as numerical diffusion \cite{wikipedia-numerical-diffusion}. 
+
 \subsection{Neural Network Method}
 
-The solution using neural networks relies on a method known as Physics-informed Neural Networks (PINNs), which doesn't directly output the solution. Instead, PINN learns a function $u(x,t)$ by minimizing the residual error of the PDE, not by discrete approximations. We use TensorFlow to compute derivatives automatically.
+The solution using neural networks relies on a method known as Physics-informed Neural Networks (PINNs), which doesn't directly output the solution. Instead, PINN learns a function $u(x,t)$ by minimizing the residual error of the PDE, not by discrete approximations. Unlike supervised learning models, which require labeled input-output pairs, PINNs integrate physical laws (typically expressed as differential equations) directly into their loss function, altering both how they learn and what data they need. Instead of matching provided examples, PINNs are trained to produce outputs that satisfy these equations (with boundary/initial conditions) \cite{compfys_ch11}. We use TensorFlow to compute derivatives automatically.
 
 \subsubsection{The trial solution}
 
@@ -238,6 +241,8 @@ h_1(x,t)
 +
 h_2(x,t, N(x,t,P))
 \end{equation}
+
+
 
 For the diffusion equation with the given conditions $u(x,0) = \sin(\pi x)$ and $u(0,t) = u(1,t) = 0$, the appropriate trial solution is \cite{hjorthjensen_week43_misc}: 
 
@@ -263,6 +268,8 @@ h2 = x*(1-x)*t*N_val
 g = h1 + h2
 \end{lstlisting}
 
+The choice of the trial solution plays a crucial role in the success of PINNs. A correct construction of the trial solution means that PINN never violates the initial or boundary conditions, because they are built into the form of the solution. If the network had to learn the boundary and initial conditions, it would require a more complex model and more training. When they are embedded into the trial solution, the optimization becomes simpler (with less training, fewer parameters, and fewer collocation points) and converges faster. This, however, can reduce flexibility and prevent the network from learning the true solution if the PDE was more complex. 
+
 \subsubsection{Cost Function}
 
 The goal is to adjust the network parameters P such that the trial solution $g_t$ satisfies the differential equation \ref{eq:diff}. The residual error $f$ of the PDE is defined as: 
@@ -276,9 +283,17 @@ f(x,t,g_t,g_t',\ldots)
 \approx 0
 \end{equation}
 
+We compute the loss as: 
+
+\begin{equation}
+L = \sum_{i=1}^{N} \left[ g_{t}(x_i, t_i) - g_{xx}(x_i, t_i) \right]^2,
+\end{equation}
+
+Where derivatives are obtained automatically via TensorFlow's \textbf{GradientTape}. 
+
 \subsection{Neural Network Architecture using Keras}
 
-The neural network is created using Keras, for a simplified process. It provides the \textbf{Sequential} model class, which allows layers to be easily appended to build standard feed-forward networks. It also includes the \textbf{Dense} layer class for defining fully connected layers, which is useful in our user case, as we need to map input coordinates x and t to an output N. This is implemented in the \textbf{create\_network\_model} function: 
+The neural network is created using Keras for a simplified process. It provides the \textbf{Sequential} model class, which allows layers to be easily appended to build standard feed-forward networks. It also includes the \textbf{Dense} layer class for defining fully connected layers, which is useful in our user case, as we need to map input coordinates x and t to an output N. This is implemented in the \textbf{create\_network\_model} function: 
 
 \begin{lstlisting}[language=Python]
 model = Sequential()
@@ -287,14 +302,14 @@ model.add(Dense(layers, activation=activation))
 model.add(Dense(output_dim, activation='linear'))
 \end{lstlisting}
 
-Keras/TensorFlow also allows us to easily specify activations for layers, and offers support for various components needed for complex training like optimizers and regularizers.
+Keras/TensorFlow also allows us to specify activations for layers easily and offers support for various components needed for complex training, such as optimizers and regularizers.
 
 \subsection{Handling Complex Differentiation}
 
-The key advantage using TensorFlow is automatic differentiation. TensorFlow also provides much better execution time than a custom NN code, since our search space, defined by the network's hyperparameters and weights, can be massive, leading to long runtimes. In this case, we minimize the cost function based on the residual of the PDE, by calculating high-order derivatives of the trial solution \ref{eq:trial}. TensorFlow provides efficient mechanisms for automatic differentiation (using \textbf{tf.GradientTape}) necessary for computing these complex high-order derivatives during the backpropagation and optimization stages \cite{hjorthjensen_week42_misc} \cite{hjorthjensen_week43_misc}. \textbf{tf.GradientTape} is implemented in our code: 
+The key advantage of using TensorFlow is automatic differentiation. TensorFlow also provides significantly better execution time than custom NN code, as our search space, defined by the network's hyperparameters and weights, can be massive, leading to long runtimes. In this case, we minimize the cost function based on the residual of the PDE, by calculating high-order derivatives of the trial solution \ref{eq:trial}. TensorFlow provides efficient mechanisms for automatic differentiation (using \textbf{tf.GradientTape}) necessary for computing these complex high-order derivatives during the backpropagation and optimization stages \cite{hjorthjensen_week42_misc} \cite{hjorthjensen_week43_misc}. \textbf{tf.GradientTape} is implemented in our code: 
 
 \begin{lstlisting}[language=Python]
-#Second derivatives w.r.t.x
+#Second derivatives w.r.t. x
 with tf.GradientTape(persistent=True) as tape2:
     ....
     #Inner tape to compute first derivatives 
@@ -311,7 +326,7 @@ residual = d_g_t_dt - d2_g_t_d2x
 loss = tf.reduce_mean(tf.square(residual))
 \end{lstlisting}
 
-The cost function is the MSE of the residual at radomly sampled collocation points; the difference between the time derivative and the second spatial derivative of the trial solution. 
+The cost function is the MSE of the residual at randomly sampled collocation points; the difference between the time derivative and the second spatial derivative of the trial solution. 
 
 \subsection{Custom Training Loop}
 
@@ -336,13 +351,22 @@ def train_step(X_points):
 loss = train_step(X_train)
 \end{lstlisting}
 
-This code block performs one training iteration of our PINN model. It computes the loss, the gradients with respect to all network parameters and applies an optimizer. This replaces the more standard \textbf{mode.fit()} more commonly used in classification or regression problems. Adapted to our PDE problem, the function:
+This code block performs one training iteration of our PINN model. It computes the loss and the gradients with respect to all network parameters, and then applies an optimizer. This replaces the more standard \textbf{mode.fit()} method, which is more commonly used in classification or regression problems. Adapted to our PDE problem, the function:
 
 \begin{enumerate}
     \item Evaluates how well the neural network satisfies the PDE at given points. 
     \item Calculates how changing each weight affects the PDE residual. 
     \item Adjusts the weights to reduce the residual.
 \end{enumerate}
+
+We implemented early stopping for epochs with: 
+
+\begin{itemize}
+    \item Patience: 1000 epochs
+    \item improvement threshold: $1 x 10^{-6}$
+\end{itemize}
+
+This prevents long plateaus or worsening of MSE after initial improvements. Weights are automatically restored to the best-performing epoch.  
 
 \subsection{Comparison with Analytical Solution}
 
@@ -356,53 +380,34 @@ This is implemented in our \textbf{compute\_MSE()} function. This separates \tex
 
 \subsection{Complexity Study}
 
-When using PINNs, the network architecture and other hyperparameters affect the accuracy, stability and convergence of the PDE solution. PINNs performance depends heavily on the model design. Therefore, we test over several hyperparameters to find a configuration that is both accurate and robust. We evaluate using loss and MSE scores, in addition to testing over several seeds to assess variance, stability and general performance. 
+When using PINNs, the network architecture and other hyperparameters affect the accuracy, stability, and convergence of the PDE solution. PINNs' performance depends heavily on the model design. Therefore, we test over several hyperparameters to find a configuration that is both accurate and robust. We evaluate our model using loss and MSE scores, in addition to testing it over several seeds to assess variance, stability, and general performance. 
 
 \subsubsection{Width test}
 
-The width controls the capacity of the neural network. Too few nodes can result in underfitting, and too many nodes can result in instability and a harder to train model as parameters grow rapidly \cite{hjorthjensen_week42_misc}. The largest width is not necessarily the best one as PINN loss landscapes can become stiff with increased width, as in the topography can be both steep and flat and an appropriate step size can be hard to find. 
-Networks of the form: 
-
-\[
-[20],\,[50],\,[100],\,[150],\,[200],\,[250]
-\]
+The width controls the capacity of the neural network. Too few nodes can result in underfitting, and too many nodes can lead to instability and a more difficult-to-train model as the number of parameters increases rapidly \cite{hjorthjensen_week42_misc}. The largest width is not necessarily the best one, as PINN loss landscapes can become stiff with increased width. In such cases, the topography can be both steep and flat, making it challenging to find an appropriate step size. 
 
 \subsubsection{Depth test}
 
-As stated before, the Universal Approximation Theorem says that a network just needs a single hidden layer to approximate any continuous function, increasing depth offers practical advantages. Together with width, depth determine the network's topology and complexity. For very complex problems, increasing the number of layers allows the network to learn abstract features, but this can require a huge amount of training data. For many problems, starting with one or two hidden layers is sufficient \cite{compfys_ch14}. \\
+As stated earlier, the Universal Approximation Theorem states that a network requires only a single hidden layer to approximate any continuous function; increasing depth offers practical advantages. Together with width, depth determines the network's topology and complexity. For very complex problems, increasing the number of layers enables the network to learn abstract features; however, this can require a substantial amount of training data. For many problems, starting with one or two hidden layers is sufficient \cite{compfys_ch14}. \\
 
-For deeper architectures, the challenge is often the unstable gradient problem, like vanishing gradients and exploding gradients. When training deep networks, the error signal becomes too small as it is passed backward through many layers, so the early layers barely gets updated, causing learning to slow down or stop entirely. Exploding gradients is the oposite problem; the error signal becomes too large as it moves backward, leading to huge weight updates that make training unstable and cause divergence. Different layers can also learn at different speeds, resulting in uneven learning \cite{compfys_ch14} \cite{hjorthjensen_week42_misc}. Choosing the optimal depth is crucial. 
-Architectures of the form: 
-
-\[
-[150],\,[150, 150],\,[150, 150, 150],\,[150, 150, 150, 150]
-\]
+For deeper architectures, the challenge is often the unstable gradient problem, like vanishing gradients and exploding gradients. When training deep networks, the error signal becomes too small as it is passed backward through many layers, so the early layers barely get updated, causing learning to slow down or stop entirely. Exploding gradients is the opposite problem; the error signal becomes too large as it moves backward, leading to huge weight updates that make training unstable and cause divergence. Different layers can also learn at different speeds, resulting in uneven learning \cite{compfys_ch14} \cite{hjorthjensen_week42_misc}. Choosing the optimal depth is crucial. 
 
 \subsubsection{Activation test}
 
 Activation functions affect the smoothness of the solution, the stability of the gradient backpropagation, and the shape of the function space the network can represent. With the activation function, we can introduce nonlinearity into the network, which is essential when we deal with solutions derived from differential equations \cite{compfys_ch13}. \\ 
 
-Activation functions tested: 
-
-\[
-tanh, Sigmoid, ReLU, swish
-\]
-
-Each configuration is used using the same training loop, and both residual loss and solution MSE are recorded. 
-
 \subsubsection{Learning rate test}
 
-The learning rate determines the size of each optimization step. PINNs are sensitive to this parameter, because their loss function combines PDE residuals, boundary conditions, and higher-order derivatives. A learning rate that is too high leads to unstable or diverging training, while a too low value can lead to slow convergence. 
+The learning rate determines the size of each optimization step. PINNs are sensitive to this parameter because their loss function combines PDE residuals, boundary conditions, and higher-order derivatives. A learning rate that is too high leads to unstable or diverging training, while a too low value can lead to slow convergence \cite{compfys_ch14}. 
 
-\[
-[0.0001, 0.001, 0.01, 0.1, 1.0]
-\]
 
 \subsubsection{Optimizer test}
 
-PINN optimization can be challenging due to stiff gradient landscapes and high-order derivatives computed via automatic differentiation. ADAM is fast, but can be unstable for large models, while RMSProp can sometimes be more stable. These are the two optimizers we test. Optimizer choice can drastically change convergence behavior, and we examine which one best handles PDE loss and minimizes the residual reliably. 
+PINN optimization can be challenging due to stiff gradient landscapes and the computation of high-order derivatives via automatic differentiation. ADAM is fast, but can be unstable for large models, while RMSProp can sometimes be more stable. These are the two optimizers we test. Optimizer choice can drastically change convergence behavior, and we examine which one best handles PDE loss and minimizes the residual reliably \cite{hjorthjensen_week42_misc}. 
 
-To improve convergence, we use a first-order optimization (either Adam or RMSProp, depending on tests) with a second-order quasi-Newton method (L-BFGS). 832498173498327489237492
+\subsubsection{Collocation points}
+
+We conduct a test with varying numbers of collocation points, using uniform sampling, as the number and distribution of collocation points can strongly influence PINN performance. In regions with steeper gradients, there could be some benefit from a different distribution of sampling points if the model shows performance issues in these regions. 
 
 \subsubsection{Testing across multiple seeds}
 
@@ -426,13 +431,13 @@ We repeat each hyperparameter configuration across different seeds and compute m
 
 \subsection{Use of AI}
 
-I have a folder in GitHub with my ChatGPT prompts. In addition to this, I have a Grammarly business account through my work that I use for language correction (grammar, spelling, fixing sentences, punctuation, suggesting alternative words, etc). 
+There is a folder in GitHub containing the ChatGPT prompts, which are mostly conceptual questions for understanding PINNs and are not directly related to this report. In addition to this, I have a Grammarly business account through my work that I use for language correction (grammar, spelling, fixing sentences, punctuation, suggesting alternative words, etc). 
 
 \section{Results}
 
 \subsection{Initial tests}
 
-Our PINN model for these initial tests has two hidden layers with 6 and 7 nodes, and uses Sigmoid activation layer. 
+Our PINN model for these initial tests has two hidden layers with 6 and 7 nodes, and uses a Sigmoid activation layer. 
 
 \begin{figure}[H]
     \centering
@@ -441,7 +446,7 @@ Our PINN model for these initial tests has two hidden layers with 6 and 7 nodes,
     \label{fig:analytical}
 \end{figure}
 
-Figure \ref{fig:analytical} shows the behaviour of the analytical solution in the chosen time domain and over the whole spatial domain. The maximum value occurs at x = 0.5 at t = 0. The solution is symmetric around the midpoint, with a sinusoidal shape while flattening over time. This plot serves as the reference solution to evaluate both the Euler and PINN method; in addition to that, it gives us our reference temporal domain (reference value for \textbf{T\_final}). 
+Figure \ref{fig:analytical} shows the behaviour of the analytical solution in the chosen time domain and over the whole spatial domain. The maximum value occurs at x = 0.5 at t = 0. The solution is symmetric around the midpoint, exhibiting a sinusoidal shape that gradually flattens over time. This plot serves as the reference solution to evaluate both the Euler and PINN methods; in addition, it provides our reference temporal domain (reference value for \textbf{T\_final}). 
 
 \begin{figure}[H]
     \centering
@@ -450,7 +455,7 @@ Figure \ref{fig:analytical} shows the behaviour of the analytical solution in th
     \label{fig:initial_test}
 \end{figure}
 
-In Figure \ref{fig:initial_test}, we present the initial tests of the Euler scheme and PINN model at two time points, t = 0.01 and t = 0.10, plotted against the corresponding analytical solutions at these time points. We have not yet optimized the PINN model and have chosen some arbitrary values. We see that Euler FD lies almost on top of the analytical solution, the same as our PINN model. At t=0.10, a slightly more diffused profile is visible, consistent with the analytical behaviour we showed in Figure \ref{fig:analytical}. From this plot alone we can see no visible discrepancy. 
+In Figure \ref{fig:initial_test}, we present the initial tests of the Euler scheme and PINN model at two time points, t = 0.01 and t = 0.10, plotted against the corresponding analytical solutions at these time points. We have not yet optimized the PINN model and have chosen some arbitrary values. We observe that the Euler FD method lies almost on top of the analytical solution, just as our PINN model does. At t=0.10, a slightly more diffused profile is visible, consistent with the analytical behaviour we showed in Figure \ref{fig:analytical}. From this plot alone, we can see no visible discrepancy. 
 
 \subsubsection{Euler vs PINN analysis}
 
@@ -463,7 +468,7 @@ In Figure \ref{fig:initial_test}, we present the initial tests of the Euler sche
 \end{figure}
 
 Figure \ref{fig:error_comp} shows the error at each computed point for t=0.10. The PINN has much lower maximum error and smoother spatial accuracy compared to Euler, demonstrating that PINN provides a more accurate approximation at this time point. This is consistent with PINN minimizing the residual of the PDE globally \cite{hj_week40}, while Euler accumulates truncation error. In Figure \ref{fig:heatmap_comparison}, the error maps show how accuracy evolves over both space and time. The Euler method shows increasing error for larger t, especially around the center x. The PINN maintains low error at small times, but develops a localized band of errors for intermediate t. Overall, PINN maintains a lower maximum error. 
-Figure \ref{fig:long_time_comparison} examines the long-time behaviour. At t = 0.2, both numerical methods accurately track the analytical curve. At t = 0.5, Euler begins to underpredict the amplitude while PINN slightly overestimates it, but both still capture the parabolic shape and remain close to the analytical solution. 
+Figure \ref{fig:long_time_comparison} examines the long-time behaviour. At t = 0.2, both numerical methods accurately track the analytical curve. At t = 0.5, the Euler method begins to underpredict the amplitude, while the PINN slightly overestimates it; however, both methods still capture the parabolic shape and remain close to the analytical solution. 
 
 \begin{figure}[H]
     \centering
@@ -578,33 +583,74 @@ The PINN was finally trained with an architecture of [200, 200] layers and nodes
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\linewidth]{Figures/Initial tests/error_euler_vs_PINN.png}
+    \includegraphics[width=0.9\linewidth]{Figures/Final model/pinn_error_heatmap_nolbfgs.png}
     \caption{PINN error heatmap - final model. The error is dominated in x=0.5, t=0, consistent with where the analytical solution has its largest amplitude.}
     \label{fig:final_error}
 \end{figure}
 
-In 
+In the initial PINN in Figure \ref{fig:pinn_heatmap}, we saw wavy, oscillatory bands across time and higher error concentrated in a stripy pattern. These patterns indicate instability and fluctuations in the learned PDE solution. Our final PINNs error heatmap, shown in Figure \ref{fig:final_error}, displays a minimal, smooth error that decays over time, which is consistent with a diffusion behavior. There are no oscillations, and the largest error occurs at the midpoint, where the analytical solution has its maximum. The final model captures the structure of the diffusion equation more accurately, and appears to have learned the correct global behavior. 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\linewidth]{Figures/Initial tests/error_euler_vs_PINN.png}
-    \caption{PINN error heatmap - final model. The error is dominated in x=0.5, t=0, consistent with where the analytical solution has its largest amplitude.}
+    \includegraphics[width=0.9\linewidth]{Figures/Final model/longtime_05_nolbfgs.png}
+    \caption{Long-time behavior of our final model at t=0.5.}
+    \label{fig:longtime_final}
 \end{figure}
+
+The initial long-time behavior shown in \ref{fig:long_time_comparison} at t=0.5 showed that our PINN model deviated noticeably from the analytical solution. Our final model in Figure \ref{fig:longtime_final} matches the analytical solution almost exactly, and has a much smaller deviation than the Euler model. It also exhibits more accurate behavior near the boundaries, where the initial tests showed an incorrect slope. 
 
 \section{Discussion}
 
 The initial result comparing the analytical solution, Euler, and PINN demonstrates that both the Euler scheme and PINN model are capable of reproducing the analytical solution with high accuracy for short times and coarse spatial resolution. The explicit Euler scheme performs well because the spatial step size and time step satisfy the stability condition in equation \ref{eq:stability}. Our relatively small and simple PINN model achieves comparable accuracy to the Euler scheme, and although it doesn't show a clear advantage, it also doesn't fall behind. The PINN model matches the analytical curves at two different times, which suggests it has learned both the temporal and spatial structures of the solution. 
 
-Because the diffusion equation is linear and well-behaved, both approaches perform seemingly equally well under these conditions. Any differences are too small to be visible in Figure \ref{fig:initial_test}. This motivated the need for additional tests to see where the Euler method might begin to degrade and if the PINN model maintains stability or accuracy in these regimes. 
+Because the diffusion equation is linear and well-behaved, both approaches perform seemingly equally well under these conditions. Any differences are too small to be visible in Figure \ref{fig:initial_test}. This motivated the need for additional tests to see where the Euler method might begin to degrade and if the PINN model maintains stability or accuracy in these regimes. Stability in the PINN framework refers to optimization stability rather than numerical stability, as in Euler, as PINNs do not evolve the solution explicitly in time. 
 
 From our error analysis, the results highlight a difference between traditional numerical schemes, such as the Euler method, and our PINN model in solving time-dependent PDEs. They both perform well over short times, but their behaviour diverges as time increases. The Euler method underestimated the amplitude of the solution over a longer time, due to its tendency to smooth the solution more than the true PDE does and because of growing error bands, as we could see in the heatmap in Figure \ref{fig:euler_heatmap}. The PINN method demonstrated high accuracy over the time interval for which it was trained on. The error comparison in Figure \ref{fig:initial_test} shows that the network approximates the solution with an error much smaller than Euler, and without the same kind of numerical diffusion. At t = 0.5, it slightly overestimates the peak compared to the analytical solution. This suggests the network has learned the overall shape well, but the long-time behaviour is still sensitive to training choices (which we didn't pay much attention to in these first tests). As this was just an initial test to observe the behavior, we recognize that we need to refine our PINN model and identify the optimal architectures and hyperparameters. 
 
 The hyperparameter results guide how to improve our model. Increasing the collocation points improves the model only up to a point, beyond which optimization becomes harder and variance increases. Similarly, depth and width must be chosen wisely; networks that are too wide or too deep do not improve performance, but rather degrade it. The learning rate tests confirm the expected behavior of Adam, that a moderate learning rate yields good convergence, but more extreme values lead to instability. A surprising result was that the Sigmoid activation function gave quite good results, but it is known to suffer from vanishing gradients in deeper networks, so we did not choose it for our model. Swish also achieved good MSE values, but as tanh achieved comparable results to both swish and sigmoid, we decided to use that. It is a widely used and well-understood function in PINNs, achieving very small errors, only slightly above those of swish and sigmoid. 
 
+With our final PINN model, we outperformed the initial model and the Euler scheme. The difference between the initial and final model highlights some discoveries about PINNs: 
+
+\begin{enumerate}
+    \item The network must be large enough. The initial network was too small ([6,7]) for the smooth nature of the diffusion equation. Too few nodes can lead to the oscillation observed in Figure \ref{fig:pinn_heatmap}, which we helped eliminate by creating a wider and deeper network. 
+    \item Early stopping prevents overfitting the residual. Overfitting could be a reason for the banded, striped pattern we saw in the error heatmap. Early stopping halts training once progress plateaus, and helps runtime stay manageable. 
+    \item Although MSE has not improved drastically, the physical correctness of the problem has improved. The initial PINN didn't have the correct long-time behavior, and we had oscillations in the error heatmap. In the final model, the long-time behavior aligns with the analytical solution and its exponential decay behavior, and the error heatmap displays a smooth error pattern, consistent with diffusion. 
+\end{enumerate}
+
+While PINNs demonstrated better accuracy in this study than Euler, this comes at a high computational cost. Training a deep neural network with thousands of collocation points and epochs is a lot more expensive than a single Euler solve. However, once the network is trained, we can utilize the solution for any purpose without needing to retrain the model. This is especially useful if we need to repeat evaluations, as the Euler scheme would have to be rerun every time. 
+
+\subsection{Limitations and Future Use}
+
+The results from this project demonstrate that PINNs can accurately solve the one-dimensional diffusion equation and, in several cases, outperform the explicit Euler method. Some limitations should be addressed, especially when evaluating the future use of this method. 
+
+One key limitation is the simplicity of the physical system that was studied. The problem we studied is well understood and highly idealized. Initial and boundary conditions are known, and an analytical solution is available for comparison. The problem is linear and numerically stable. Both methods should be expected to perform well here. It does not show the type of problem where PINNs could be expected to provide a larger advantage than classical numerical solvers.  A non-linear PDE with sharp gradients or irregular geometries would pose a greater challenge. 
+
+Another challenge could be the limitation of the trial solution, which explicitly enforces the initial and boundary conditions. In problems that aren't as well-defined as the one-dimensional diffusion equation, with possibly more complex or time-dependent boundary conditions, this approach may not be suitable. It can restrict the space of functions that the network can represent. The number and distribution of collocation points can also pose a limitation. Here, the collocation points were sampled uniformly across the spatial and temporal domains, which works well for smooth solutions. If the solution varies rapidly in specific regions or at certain times, the uniform sampling can lead to wasted computational effort in areas where the solution is already well-approximated. In these cases, adaptive sampling, where more points are sampled from areas with steeper gradients, can improve convergence and training time. 
+
+Our PINN model was sensitive to hyperparameter choices, and despite extensive hyperparameter testing, some variability was observed between different random seeds. For more complex problems, optimization can be challenging due to stiff and non-convex landscapes. There are methods, such as L-BFGS, that can improve convergence and accuracy in more complex cases, but we did not test them for this problem. 
+
+Another factor is the computational cost of PINNs. For this simple problem, the Euler method is inexpensive and straightforward to implement, providing accurate solutions comparable to those of PINN and the analytical solution. The computational cost (and time spent) of training the PINN model might not be justified for problems of this type. 
+
+Finally, in this problem, all the physical parameters were known in advance. One of the more promising and interesting applications of PINNs is in problems where the coefficients, source terms, or boundary conditions are derived from limited or noisy data or so-called inverse problems, where some part of the PDE is unknown and must be inferred from measured data. PINN can combine data and physics in a single function and integrate multiple data sources, which could be useful in many real-life settings (technology and engineering companies using machine learning for a better understanding of their product, for instance). 
+
 \section{Conclusion}
 
-The initial tests confirm that both PINN and Euler reproduce the analytical solution of the diffusion equation with great accuracy for short times. PINN achieved significantly lower error than the Euler scheme. Error heatmaps show that Euler accumulates error over time, while PINN maintains a uniformly low error across the domain. Further studies over longer times revealed that both methods stay close to the analytical solution, but Euler slightly underestimates, and PINN slightly overestimates without the correct training. 
-Hyperparameter testing shows that PINN accuracy is highly sensitive to architectural choices and optimizer settings. Optimal performance is achieved using ADAM optimizer, a moderate learning rate ($10^{-2}$ to $10^{-3}$), and a network of moderate width and depth. A too-deep network, too many modes, or too many collocation points can cause degraded training stability. For the activation function, we chose safety with tanh; however, both sigmoid and swish achieved a lower MSE value and could be used. 
+The initial tests confirm that both PINN and Euler reproduce the analytical solution of the diffusion equation with great accuracy for short times. PINN achieved significantly lower error than the Euler scheme. Error heatmaps show that Euler accumulates error over time, while PINN maintains a uniformly low error across the domain. Further studies over longer times revealed that both methods stay close to the analytical solution. Still, Euler slightly underestimates, and PINN slightly overestimates, primarily due to a lack of correct training. 
+Hyperparameter testing shows that PINN accuracy is highly sensitive to architectural choices and optimizer settings. Optimal performance is achieved using ADAM optimizer, a moderate learning rate ($10^{-2}$ to $10^{-3}$), and a network of moderate width and depth. A too-deep network, too many modes, or too many collocation points can cause degraded training stability. For the activation function, although the safe choice was the tanh function, both sigmoid and swish achieved a lower MSE value, suggesting potential for experimentation with different activation functions to improve accuracy. 
+
+The final PINN model demonstrates qualitative and quantitative improvements compared to the initial tests. We don't achieve a dramatically lower MSE with our modifications, but our model displays a much more accurate behaviour than earlier and removes previously observed oscillations in the error heatmap. The optimized model: 
+
+\begin{itemize}
+    \item Eliminates oscillations seen in earlier error heatmap
+    \item Exhibits correct long-time decay
+    \item Produces accurate solutions for all tested time slices
+    \item Outperforms Euler's method at both short and long times
+    \item Achieves a smoother, more physically meaningful error distribution
+\end{itemize}
+
+Our results demonstrate that architecture, training stability, optimizations, and regularization (like early stopping) are essential for a stable and accurate PINN solution. These findings provide valuable insight into how various factors impact the performance of PINNs, showing potential for solving more complex differential equations with machine learning methods. 
+
+The study we have done here demonstrates that PINN can accurately solve the one-dimensional diffusion equation and provides insight into how architectural and training choices affect performance. The results clarify how PINNs behave in general and illustrate their strength and weaknesses. However, the experiments we did here only represent a proof of concept. We demonstrated how PINNs \textit{can} work, but we have not tested all cases, limitations, or real-world scenarios. This is not a comprehensive validation or judgment on the method, as we have yet to fully assess the true capabilities of PINNs. Addressing these limitations would enable a more thorough evaluation of PINNs and their potential role in scientific computing, as well as whether PINNs can complement or replace traditional numerical methods. Overall, the study suggests that PINNs have significant potential but require further validation before determining whether they can be used to solve complex real-world differential problems. 
 
 \bibliographystyle{apsrev4-2}
 \bibliography{biblio}
